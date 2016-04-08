@@ -1,0 +1,5 @@
+repo: git@github.com:juju-solutions/layer-apache-hadoop-nodemanager.git
+includes:
+  - 'layer:apache-bigtop-base'
+  - 'layer:hadoop-ganglia'
+  - 'interface:mapred-slave'

@@ -14,15 +14,17 @@ def install_hadoop(resourcemanager):
     '''Install only if the resourcemanager has sent its FQDN.'''
     if resourcemanager.resourcemanagers():
         hookenv.status_set('maintenance', 'installing nodemanager')
-        hostname = resourcemanager.resourcemanagers()[0]
+        nn_fqdn = resourcemanager.resourcemanagers()[0]
+        rm_fqdn = resourcemanager.resourcemanagers()[1]
         bigtop = get_bigtop_base()
-        bigtop.install(NN=hostname)
+        bigtop.install(NN=nn_fqdn, RM=rm_fqdn)
         set_state('nodemanager.installed')
         hookenv.status_set('maintenance', 'nodemanager installed')
     else:
         hookenv.status_set('waiting', 'waiting for nodemanager to become ready')
 
 
+@when('resourcemanager.joined')
 @when('nodemanager.installed')
 @when_not('nodemanager.started')
 def start_nodemanager():
@@ -39,6 +41,7 @@ def start_nodemanager():
 def stop_nodemanager():
     hookenv.status_set('maintenance', 'stopping nodemanager')
     for port in get_layer_opts().exposed_ports('nodemanager'):
+        hookenv.close_port(port)
     host.service_stop('hadoop-yarn-nodemanager')
     remove_state('nodemanager.started')
     hookenv.status_set('maintenance', 'nodemanager stopped')

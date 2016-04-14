@@ -11,7 +11,7 @@ options:
         # not need ports to be explicitly opened.
         nm_webapp_http:
             port: 8042
-            exposed_on: 'nodemanaer'
+            exposed_on: 'nodemanager'
         # TODO: support SSL
         #dn_webapp_https:
         #    port: 50475

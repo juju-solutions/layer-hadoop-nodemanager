@@ -21,7 +21,7 @@ def install_hadoop(resourcemanager):
         set_state('nodemanager.installed')
         hookenv.status_set('maintenance', 'nodemanager installed')
     else:
-        hookenv.status_set('waiting', 'waiting for nodemanager to become ready')
+        hookenv.status_set('waiting', 'waiting for resourcemanager to become ready')
 
 
 @when('resourcemanager.joined')

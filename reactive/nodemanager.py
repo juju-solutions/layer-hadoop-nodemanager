@@ -27,7 +27,7 @@ def install_hadoop(resourcemanager):
 @when('resourcemanager.joined')
 @when('nodemanager.installed')
 @when_not('nodemanager.started')
-def start_nodemanager():
+def start_nodemanager(resourcemanager):
     hookenv.status_set('maintenance', 'starting nodemanager')
     host.service_start('hadoop-yarn-nodemanager')
     for port in get_layer_opts().exposed_ports('nodemanager'):

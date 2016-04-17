@@ -8,16 +8,17 @@ def blocked():
     hookenv.status_set('blocked', 'waiting for resourcemanager relation')
 
 
-@when('resourcemanager.joined')
+@when('resourcemanager.joined', 'puppet.available')
 @when_not('nodemanager.installed')
 def install_hadoop(resourcemanager):
     '''Install only if the resourcemanager has sent its FQDN.'''
     if resourcemanager.resourcemanagers():
         hookenv.status_set('maintenance', 'installing nodemanager')
-        nn_fqdn = resourcemanager.resourcemanagers()[0]
-        rm_fqdn = resourcemanager.resourcemanagers()[1]
+        nn_host = resourcemanager.resourcemanagers()[0]
+        rm_host = resourcemanager.resourcemanagers()[1]
         bigtop = get_bigtop_base()
-        bigtop.install(NN=nn_fqdn, RM=rm_fqdn)
+        hosts = {'namenode': nn_host, 'resourcemanager': rm_host}
+        bigtop.install(hosts=hosts, roles="['nodemanager', mapred-app']")
         set_state('nodemanager.installed')
         hookenv.status_set('maintenance', 'nodemanager installed')
     else:

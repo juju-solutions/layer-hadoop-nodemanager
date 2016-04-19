@@ -30,7 +30,10 @@ def install_hadoop(resourcemanager):
 @when_not('nodemanager.started')
 def start_nodemanager(resourcemanager):
     hookenv.status_set('maintenance', 'starting nodemanager')
-    host.service_start('hadoop-yarn-nodemanager')
+    # NB: service should be started by install, but this may be handy in case
+    # we have something that removes the .started state in the future. Also
+    # note we restart here in case we modify conf between install and now.
+    host.service_restart('hadoop-yarn-nodemanager')
     for port in get_layer_opts().exposed_ports('nodemanager'):
         hookenv.open_port(port)
     set_state('nodemanager.started')

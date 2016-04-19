@@ -45,4 +45,7 @@ def stop_nodemanager():
         hookenv.close_port(port)
     host.service_stop('hadoop-yarn-nodemanager')
     remove_state('nodemanager.started')
+    # Remove the installed state so we can re-configure the installation
+    # if/when a new resourcemanager comes along in the future.
+    remove_state('nodemanager.installed')
     hookenv.status_set('maintenance', 'nodemanager stopped')

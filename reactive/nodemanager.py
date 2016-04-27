@@ -5,13 +5,18 @@ from charmhelpers.core import host, hookenv
 
 @when_not('resourcemanager.joined')
 def blocked():
-    hookenv.status_set('blocked', 'waiting for resourcemanager relation')
+    hookenv.status_set('blocked', 'missing required resourcemanager relation')
 
 
-@when('resourcemanager.joined', 'puppet.available')
-@when_not('nodemanager.installed')
-def install_hadoop(resourcemanager):
-    '''Install only if the resourcemanager has sent its FQDN.'''
+@when('puppet.available', 'resourcemanager.joined')
+@when_not('apache-bigtop-nodemanager.installed')
+def install_nodemanager(resourcemanager):
+    """Install if the resourcemanager has sent master FQDNs.
+
+    We only need the master FQDNs to perform the nodemanager install, so poll
+    for resourcemanagers() data whenever we have a resourcemanager relation.
+    This allows us to install asap, even if 'resourcemanager.ready' is not set.
+    """
     if resourcemanager.resourcemanagers():
         hookenv.status_set('maintenance', 'installing nodemanager')
         nn_host = resourcemanager.resourcemanagers()[0]
@@ -19,15 +24,24 @@ def install_hadoop(resourcemanager):
         bigtop = get_bigtop_base()
         hosts = {'namenode': nn_host, 'resourcemanager': rm_host}
         bigtop.install(hosts=hosts, roles="['nodemanager', mapred-app']")
-        set_state('nodemanager.installed')
+        set_state('apache-bigtop-nodemanager.installed')
         hookenv.status_set('maintenance', 'nodemanager installed')
     else:
-        hookenv.status_set('waiting', 'waiting for resourcemanager to become ready')
+        hookenv.status_set('waiting', 'waiting for resourcemanager fqdn')
 
 
-@when('resourcemanager.joined')
-@when('nodemanager.installed')
-@when_not('nodemanager.started')
+@when('apache-bigtop-nodemanager.installed', 'resourcemanager.joined')
+@when_not('resourcemanager.ready')
+def send_rm_spec(resourcemanager):
+    """Send our nodemanager spec so the resourcemanager can become ready."""
+    bigtop = get_bigtop_base()
+    # Send NM spec (must match NN spec for 'resourcemanager.ready' to be set)
+    resourcemanager.set_local_spec(bigtop.spec())
+    hookenv.status_set('waiting', 'waiting for resourcemanager to become ready')
+
+
+@when('apache-bigtop-nodemanager.installed', 'resourcemanager.ready')
+@when_not('apache-bigtop-nodemanager.started')
 def start_nodemanager(resourcemanager):
     hookenv.status_set('maintenance', 'starting nodemanager')
     # NB: service should be started by install, but this may be handy in case
@@ -36,19 +50,19 @@ def start_nodemanager(resourcemanager):
     host.service_restart('hadoop-yarn-nodemanager')
     for port in get_layer_opts().exposed_ports('nodemanager'):
         hookenv.open_port(port)
-    set_state('nodemanager.started')
+    set_state('apache-bigtop-nodemanager.started')
     hookenv.status_set('active', 'ready')
 
 
-@when('nodemanager.started')
-@when_not('resourcemanager.joined')
+@when('apache-bigtop-nodemanager.started')
+@when_not('resourcemanager.ready')
 def stop_nodemanager():
     hookenv.status_set('maintenance', 'stopping nodemanager')
     for port in get_layer_opts().exposed_ports('nodemanager'):
         hookenv.close_port(port)
     host.service_stop('hadoop-yarn-nodemanager')
-    remove_state('nodemanager.started')
+    remove_state('apache-bigtop-nodemanager.started')
     # Remove the installed state so we can re-configure the installation
     # if/when a new resourcemanager comes along in the future.
-    remove_state('nodemanager.installed')
+    remove_state('apache-bigtop-nodemanager.installed')
     hookenv.status_set('maintenance', 'nodemanager stopped')

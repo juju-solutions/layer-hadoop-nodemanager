@@ -1,4 +1,5 @@
-from charms.reactive import when, when_not, set_state, remove_state
+from charms.reactive import when, when_not, set_state, remove_state, is_state
+from charms.reactive.helpers import data_changed
 from charms.layer.apache_bigtop_base import Bigtop, get_layer_opts
 from charmhelpers.core import host, hookenv
 
@@ -12,19 +13,39 @@ def install_nodemanager(namenode, resourcemanager):
     for master host data from the appropriate relation. This allows us to
     install asap, even if '<master>.ready' is not set.
     """
-    if namenode.namenodes() and resourcemanager.resourcemanagers():
-        hookenv.status_set('maintenance', 'installing nodemanager')
-        nn_host = namenode.namenodes()[0]
-        rm_host = resourcemanager.resourcemanagers()[0]
+    namenodes = namenode.namenodes()
+    resourcemanagers = resourcemanager.resourcemanagers()
+    masters = namenodes + resourcemanagers
+    if namenodes and resourcemanagers and data_changed('nm.masters', masters):
+        installed = is_state('apache-bigtop-datanode.installed')
+        action = 'installing' if not installed else 'configuring'
+        hookenv.status_set('maintenance', '%s nodemanager' % action)
         bigtop = Bigtop()
-        hosts = {'namenode': nn_host, 'resourcemanager': rm_host}
-        bigtop.render_site_yaml(hosts=hosts, roles="['nodemanager', mapred-app']")
-        bigtop.trigger_puppet()
-        set_state('apache-bigtop-nodemanager.installed')
-        hookenv.status_set('maintenance', 'nodemanager installed')
+        bigtop.render_site_yaml(
+            hosts={
+                'namenode': namenodes[0],
+                'resourcemanager': resourcemanagers[0],
+            },
+            roles=[
+                'nodemanager',
+                'mapred-app',
+            ],
+        )
+        bigtop.queue_puppet()
+        set_state('apache-bigtop-nodemanager.pending')
 
 
-@when('apache-bigtop-nodemanager.installed', 'namenode.joined', 'resourcemanager.joined')
+@when('apache-bigtop-nodemanager.pending')
+@when_not('apache-bigtop-base.puppet_queued')
+def finish_install_nodemanager():
+    set_state('apache-bigtop-nodemanager.installed')
+    installed = is_state('apache-bigtop-datanode.installed')
+    action = 'installed' if not installed else 'configured'
+    hookenv.status_set('maintenance', 'nodemanager %s' % action)
+
+
+@when('apache-bigtop-nodemanager.installed')
+@when('namenode.joined', 'resourcemanager.joined')
 @when_not('namenode.ready', 'resourcemanager.ready')
 def send_nm_spec(namenode, resourcemanager):
     """Send our nodemanager spec so the master relations can become ready."""
@@ -33,7 +54,8 @@ def send_nm_spec(namenode, resourcemanager):
     resourcemanager.set_local_spec(bigtop.spec())
 
 
-@when('apache-bigtop-nodemanager.installed', 'namenode.ready', 'resourcemanager.ready')
+@when('apache-bigtop-nodemanager.installed')
+@when('namenode.ready', 'resourcemanager.ready')
 @when_not('apache-bigtop-nodemanager.started')
 def start_nodemanager(namenode, resourcemanager):
     hookenv.status_set('maintenance', 'starting nodemanager')
@@ -55,7 +77,4 @@ def stop_nodemanager():
         hookenv.close_port(port)
     host.service_stop('hadoop-yarn-nodemanager')
     remove_state('apache-bigtop-nodemanager.started')
-    # Remove the installed state so we can re-configure the installation
-    # if/when new masters come along in the future.
-    remove_state('apache-bigtop-nodemanager.installed')
     hookenv.status_set('maintenance', 'nodemanager stopped')

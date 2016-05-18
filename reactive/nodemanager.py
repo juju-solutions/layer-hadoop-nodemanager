@@ -5,7 +5,6 @@ from charmhelpers.core import host, hookenv
 
 
 @when('bigtop.available', 'namenode.joined', 'resourcemanager.joined')
-@when_not('apache-bigtop-nodemanager.installed')
 def install_nodemanager(namenode, resourcemanager):
     """Install if we have FQDNs.
 
@@ -38,6 +37,7 @@ def install_nodemanager(namenode, resourcemanager):
 @when('apache-bigtop-nodemanager.pending')
 @when_not('apache-bigtop-base.puppet_queued')
 def finish_install_nodemanager():
+    remove_state('apache-bigtop-nodemanager.pending')
     set_state('apache-bigtop-nodemanager.installed')
     installed = is_state('apache-bigtop-datanode.installed')
     action = 'installed' if not installed else 'configured'

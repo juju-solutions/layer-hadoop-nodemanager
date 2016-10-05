@@ -16,7 +16,7 @@ def install_nodemanager(namenode, resourcemanager):
     resourcemanagers = resourcemanager.resourcemanagers()
     masters = namenodes + resourcemanagers
     if namenodes and resourcemanagers and data_changed('nm.masters', masters):
-        installed = is_state('apache-bigtop-datanode.installed')
+        installed = is_state('apache-bigtop-nodemanager.installed')
         action = 'installing' if not installed else 'configuring'
         hookenv.status_set('maintenance', '%s nodemanager' % action)
         bigtop = Bigtop()
@@ -39,7 +39,7 @@ def install_nodemanager(namenode, resourcemanager):
 def finish_install_nodemanager():
     remove_state('apache-bigtop-nodemanager.pending')
     set_state('apache-bigtop-nodemanager.installed')
-    installed = is_state('apache-bigtop-datanode.installed')
+    installed = is_state('apache-bigtop-nodemanager.installed')
     action = 'installed' if not installed else 'configured'
     hookenv.status_set('maintenance', 'nodemanager %s' % action)
 

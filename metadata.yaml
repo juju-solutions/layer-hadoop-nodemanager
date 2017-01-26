@@ -10,3 +10,5 @@ tags: []
 provides:
   resourcemanager:
     interface: mapred-slave
+  ignite:
+    interface: ignite-hadoop

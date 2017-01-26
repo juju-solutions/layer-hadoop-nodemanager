@@ -2,6 +2,7 @@ repo: git@github.com:juju-solutions/layer-hadoop-nodemanager.git
 includes:
   - 'layer:apache-bigtop-base'
   - 'interface:mapred-slave'
+  - 'interface:ignite-hadoop'
 options:
   apache-bigtop-base:
     users:
